@@ -1,4 +1,6 @@
-﻿<#
+﻿#TODO: make .PARAMETERS more consistent and add lines for function used in and default value
+
+<#
     .DESCRIPTION
     This script is meant to set up the base functionality of an exchange server. It will do the following:
     1) Connect to your exchange server
@@ -26,6 +28,7 @@
     .PARAMETER EmailPolicyIdentity
     Specifies the email address policy that you want to modify. Used in function Add-EmailAddressPolicy as the -Identity argument
 
+    # TODO: add link to template options here
     .PARAMETER EmailPolicyTemplate
     Specifies the rules in the email address policy that are used to generate email addresses for recipients. Used in function Add-EmailAddressPolicy as the -EnabledEmailAddressTemplates argument
 
@@ -79,6 +82,7 @@
         [string]
         $ADOrganizationalUnit,
 
+        # TODO: Update this regex to allow for more than one entry
         [ValidatePattern('^[\S+]+\.[\S]+$')]
         [string[]]
         $ConnectorDomain = $env:USERDNSDOMAIN,
@@ -86,7 +90,7 @@
         [string]
         $ConnectorName = "SMTP Mail Send",
 
-        # TODO: Update this regex
+        # TODO: Update this regex to allow for more than one entry
         [ValidatePattern('^\S+$')]
         [string[]]
         $ConnectorTransportServer = $env:COMPUTERNAME,
@@ -113,6 +117,7 @@
         [switch]
         $UseAD,
 
+        # TODO: update regex and default value to accomodate capstone\Administrator form
         [ValidatePattern('^\S+$')]
         [string]
         $Username = $env:USERNAME
@@ -120,6 +125,20 @@
 
 process {
     function Connect-ExchangeServer {
+        param (
+        [Parameter(Mandatory=$true,Position=1)]
+        [securestring]
+        $Password,
+
+        [ValidatePattern('^https?://[\S+]+\.[\S+]+\.[\S]+/PowerShell$', Options='None')]
+        [string]
+        $ServerURI = "http://" + $env:COMPUTERNAME + "." + $env:USERDNSDOMAIN + "/PowerShell",
+
+        # TODO: copy updates to above script params
+        [ValidatePattern('^\S+$')]
+        [string]
+        $Username = $env:USERNAME
+    )
         $username = "capstone\administrator"
         $password = ConvertTo-SecureString 'Password1' -AsPlainText -Force
         $credentials = New-Object System.Management.Automation.PSCredential -ArgumentList $username, $password
