@@ -38,7 +38,7 @@
         [securestring]
         $Password,
 
-        [ValidatePattern('^http://[\S+]+\.[\S]+/PowerShell$')]
+        [ValidatePattern('^http://[\S+]+\.[\S+]+\.[\S]+/PowerShell$', Options='None')]
         [string]
         $ServerURI = "http://" + $env:COMPUTERNAME + "." + $env:USERDNSDOMAIN + "/PowerShell",
 
@@ -50,6 +50,7 @@
         $ConnectorDomain = $env:USERDNSDOMAIN,
 
         [ValidatePattern('^\S+$')]
+        [string]
         $ConnectorTransportServer = $env:COMPUTERNAME,
 
         [string]
@@ -60,12 +61,13 @@
 
         $PathToCSV,
 
-        [Parameter(ParameterSetName='UseAD')][switch]
+        [Parameter(ParameterSetName='UseAD')]
+        [switch]
         $UseAD,
 
-        [string]
         [Parameter(ParameterSetName="UseAD",Mandatory=$true)]
-        $ADOU
+        [string]
+        $ADOrganizationalUnit
     )
 
 process {
@@ -139,7 +141,18 @@ process {
     # MAIN
     ########################################
 
-    Write-Output "You specified $Username"
+    Write-Output "Username: $Username"
+    Write-Output "Password: $Password"
+    Write-Output "ServerURI: $ServerURI"
+    Write-Output "ConnectorName: $ConnectorName"
+    Write-Output "ConnectorDomain: $ConnectorDomain"
+    Write-Output "ConnectorTransportServer: $ConnectorTransportServer"
+    Write-Output "EmailPolicyIdentity: $EmailPolicyIdentity"
+    Write-Output "EmailPolicyTemplate: $EmailPolicyTemplate"
+    Write-Output "PathToCSV: $PathToCSV"
+    Write-Output "UseAD: $UseAD"
+    Write-Output "ADOrganizationalUnit: $ADOrganizationalUnit"
+
 
     # Connect-ExchangeServer
 
