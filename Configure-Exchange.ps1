@@ -1,56 +1,94 @@
 ﻿<#
     .DESCRIPTION
-    This script can install Exchange 2013/2016/2019 Preview prerequisites, optionally create the Exchange
-    organization (prepares Active Directory) and installs Exchange Server. When the AutoPilot switch is
-    specified, it will do all the required rebooting and automatic logging on using provided credentials.
-    To keep track of provided parameters and state, it uses an XML file; if this file is
-    present, this information will be used to resume the process. Note that you can use a central
-    location for Install (UNC path with proper permissions) to re-use additional downloads.
+    This script is meant to set up the base functionality of an exchange server. It will do the following:
+    1) Connect to your exchange server
+    2) Add a send connector
+    3) Add an email address policy
+    4) Create firewall rules
+    5) Create mailboxes from AD users
+    6) Create mailboxes from a CSV file
 
     .NOTES
-    Requirements:
-    - Operating Systems
-        - Windows Server 2008 R2 SP1
-        - Windows Server 2012
-        - Windows Server 2012 R2
-        - Windows Server 2016 (Exchange 2016 CU3+ only)
-        - Windows Server 2019 (Desktop or Core, for Exchange 2019)
-    - Domain-joined system (Except for Edge)
-    - "AutoPilot" mode requires account with elevated administrator privileges
-    - When you let the script prepare AD, the account needs proper permissions.
+    Script tested on Exchange Server 2016. 
 
-    .PARAMETER Phase
-    Internal Use Only :)
+    .PARAMETER ADOrganizationalUnit
+    Used when adding mailboxes from Active Directory in Add-MailboxFromAD. Mailboxes for every user in the organizational unit will be made
+
+    .PARAMETER ConnectorDomain
+    Specifies the domain names to which the send connector routes mail. Used in function Add-SendConnector as the -AddressSpaces argument
+
+    .PARAMETER ConnectorName
+    Specifies the name of the send connector. Used in function Add-SendConnector as the -Name argument
+
+    .PARAMETER ConnectorTransportServer
+    Specifies the names of the Mailbox servers that can use this send connector. Used in function Add-SendConnector as the -SourceTransportServers argument
+
+    .PARAMETER EmailPolicyIdentity
+    Specifies the email address policy that you want to modify. Used in function Add-EmailAddressPolicy as the -Identity argument
+
+    .PARAMETER EmailPolicyTemplate
+    Specifies the rules in the email address policy that are used to generate email addresses for recipients. Used in function Add-EmailAddressPolicy as the -EnabledEmailAddressTemplates argument
+
+    .PARAMETER Password
+    Specifies password to be used when connecting to the exchange server. Used in function Connect-ExchangeServer. NOTE: password must be of System.Security.SecureString type
+
+    .PARAMETER PathToCSV
+    Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file. Used in function Add-MailboxFromCsv. NOTE: The CSV file must of the following format:
+    ###FORMAT###
+    Name, LName, FName, Alias, Password, UPN
+    ###END FORMAT###
+
+    ###EXAMPLE FILE###
+    Name, LName, FName, Alias, Password, UPN
+    Joe Johnson, Johnson, Joe, Joe, Password1, joe.Johnson@capstone
+    ###END EXAMPLE FILE###
+
+    .PARAMETER ServerURI
+    Specifies the URI of the exchange server. Used in function Connect-ExchangeServer as the -ConnectionUri argument. NOTE: format must be either one of the following
+    ###FORMAT 1###
+    http://<FQDN>/PowerShell
+    ###END FORMAT 1###
+
+    ###FORMAT 2###
+    https://<FQDN>/PowerShell
+    ###END FORMAT 2###
+
+    .PARAMETER UseAD
+    Specifies whether to add users from Active Directory or not. If set, ADOrganizationalUnit must be set as well. Used in Add-MailboxFromAD
+
+    .PARAMETER Username
+    Specifies username used to connect to the exchange server. Used in Connect-ExchangeServer
 
     .EXAMPLE
-    $Cred=Get-Credential
-    .\Install-Exchange15.ps1 -Organization Fabrikam -InstallMailbox -MDBDBPath C:\MailboxData\MDB1\DB -MDBLogPath C:\MailboxData\MDB1\Log -MDBName MDB1 -InstallPath C:\Install -AutoPilot -Credentials $Cred -SourcePath '\\server\share\Exchange 2013\mu_exchange_server_2013_x64_dvd_1112105' -SCP https://autodiscover.fabrikam.com/autodiscover/autodiscover.xml -Verbose
+    $password = ConvertTo-SecureString 'Password1' -AsPlainText -Force
+    ./Configure-Exchange $password
+
+    .EXAMPLE
+    $password = ConvertTo-SecureString 'Password1' -AsPlainText -Force
+    ./Configure-Exchange $password -UseAD -ADOrganizationalUnit "Exchange Users"
+
+    .EXAMPLE
+    $password = ConvertTo-SecureString 'Password1' -AsPlainText -Force
+    ./Configure-Exchange $password -UseAD -ADOrganizationalUnit "Exchange Users" -PathToCSV ./ADUSers.csv
 
 #>
 
 [CmdletBinding(DefaultParametersetName='None')]
     param (
-        [ValidatePattern('^\S+$')]
+        [Parameter(ParameterSetName="UseAD",Mandatory=$true)]
         [string]
-        $Username = $env:UserName,
+        $ADOrganizationalUnit,
 
-        [Parameter(Mandatory=$true,Position=1)]
-        [securestring]
-        $Password,
-
-        [ValidatePattern('^http://[\S+]+\.[\S+]+\.[\S]+/PowerShell$', Options='None')]
-        [string]
-        $ServerURI = "http://" + $env:COMPUTERNAME + "." + $env:USERDNSDOMAIN + "/PowerShell",
+        [ValidatePattern('^[\S+]+\.[\S]+$')]
+        [string[]]
+        $ConnectorDomain = $env:USERDNSDOMAIN,
 
         [string]
         $ConnectorName = "SMTP Mail Send",
 
-        [ValidatePattern('^[\S+]+\.[\S]+$')]
-        [string]
-        $ConnectorDomain = $env:USERDNSDOMAIN,
-
+        # TODO: Update this regex
         [ValidatePattern('^\S+$')]
-        [string]
+        [string[]]
         $ConnectorTransportServer = $env:COMPUTERNAME,
 
         [string]
@@ -59,15 +97,25 @@
         [string]
         $EmailPolicyTemplate = "SMTP:%g.%s@" + $env:USERDNSDOMAIN,
 
+        [Parameter(Mandatory=$true,Position=1)]
+        [securestring]
+        $Password,
+
+        [ValidateScript({Test-Path $_})]
+        [string]
         $PathToCSV,
+
+        [ValidatePattern('^https?://[\S+]+\.[\S+]+\.[\S]+/PowerShell$', Options='None')]
+        [string]
+        $ServerURI = "http://" + $env:COMPUTERNAME + "." + $env:USERDNSDOMAIN + "/PowerShell",
 
         [Parameter(ParameterSetName='UseAD')]
         [switch]
         $UseAD,
 
-        [Parameter(ParameterSetName="UseAD",Mandatory=$true)]
+        [ValidatePattern('^\S+$')]
         [string]
-        $ADOrganizationalUnit
+        $Username = $env:USERNAME
     )
 
 process {
