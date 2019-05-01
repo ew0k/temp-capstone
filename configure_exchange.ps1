@@ -1,6 +1,12 @@
 ﻿#TODO: make .PARAMETERS more consistent and add lines for function used in and default value
 
 <#
+    .SYNOPSIS
+    configure_exchange
+
+    Jacob Brown
+    jmb7438@rit.edu
+
     .DESCRIPTION
     This script is meant to set up the base functionality of an exchange server. It will do the following:
     1) Connect to your exchange server
