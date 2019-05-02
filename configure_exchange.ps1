@@ -443,7 +443,7 @@ process {
 
     Update-FirewallRules
 
-    If ($UseAD -eq $true) {
+    If ($UseAD) {
         Add-MailboxFromAD -ADOrganizationalUnit $ADOrganizationalUnit -DCDomain $DCDomain
     }
 
