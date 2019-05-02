@@ -102,6 +102,11 @@
         [string[]]
         $ConnectorTransportServer = $env:COMPUTERNAME,
 
+        [Parameter(ParameterSetName="UseAD",Mandatory=$false)]
+        [ValidatePattern('^[\S+]+\.[\S]+$')]
+        [string]
+        $DCDomain = $env:USERDNSDOMAIN,
+
         [string]
         $EmailPolicyIdentity = "Default Policy",
 
@@ -141,7 +146,7 @@ process {
         Default Value: None
 
         .PARAMETER ServerURI
-        Description: Specifies the URI of the exchange server. NOTE: format must be either one of the following
+        Description: Specifies the URI of the exchange server. NOTE: format must be either one of the following:
         ###FORMAT 1###
         http://<FQDN>/PowerShell
         ###END FORMAT 1###
@@ -280,28 +285,26 @@ process {
         Mandatory: Yes
         Default Value: None
 
-        .PARAMETER DCCompanyComponent
-        Description: 
+        .PARAMETER DCDomain
+        Description: Used to specify which domain to pull users from. NOTE: should be in format of "something.something". Example: domain.com
         Mandatory: No
-        Default Value: 
-
+        Default Value: $env:USERDNSDOMAIN
     #>
     function Add-MailboxFromAD {
         param (
             [Parameter(Mandatory=$true)]
             [string]
             $ADOrganizationalUnit,
-
+            
+            [ValidatePattern('^[\S+]+\.[\S]+$')]
             [string]
-            $DCCompanyComponent = $env:USERDNSDOMAIN.Split(".")[0],
-
-            [string]
-            $DCTLDComponent = $env:USERDNSDOMAIN.Split(".")[1]
+            $DCDomain = $env:USERDNSDOMAIN
         )
 
+        $dc_company_component = $DCDomain.Split(".")[0]
+        $dc_tld_component = $DCDomain.Split(".")[1]
+
         $existing_users = Get-Mailbox | Select-Object Name
-        $dc_company_component = $env:USERDNSDOMAIN.Split(".")[0]
-        $dc_tld_component = $env:USERDNSDOMAIN.Split(".")[1]
         $target_users = Get-ADUser -filter * -SearchBase "ou=$ADOrganizationalUnit,dc=$dc_company_component,dc=$dc_tld_component" | Select-Object Name, ObjectGUID
         foreach ($user in $target_users){
             If (-Not($existing_users.Name -contains $user.Name)) {
@@ -311,25 +314,76 @@ process {
         }
     }
 
+    <#
+        .DESCRIPTION
+        This function adds mailboxes from a specific organizational unit in active directory if the -UseAD flag is set.
+
+        .PARAMETER PathToCSV
+        Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file. NOTE: The CSV file must of the following format:
+        ###FORMAT###
+        Name, LName, FName, Alias, Password, UPN
+        ###END FORMAT###
+
+        ###EXAMPLE FILE###
+        Name, LName, FName, Alias, Password, UPN
+        Joe Johnson, Johnson, Joe, Joe, Password1, joe.Johnson@capstone
+        ###END EXAMPLE FILE###
+    #>
     function Add-MailboxFromCsv {
+        param (
+            [ValidateScript({Test-Path $_})]
+            [string]
+            $PathToCSV
+        )
         $existing_users = Get-Mailbox | Select-Object Name
         $target_users = Import-Csv ./users.csv
         foreach($user in $target_users) {
             If (-Not($existing_users.Name -contains $user.Name)){
-                $secure_password = ConvertTo-SecureString $user.password -asplaintext -force
+                $secure_password = ConvertTo-SecureString $user.password -AsPlainText -Force
                 New-Mailbox -Name $user.Name -LastName $user.LName -FirstName $user.FName -Alias $user.Alias -Password $secure_password -UserPrincipalName $user.UPN
             }
         }
     }
 
+    <#
+        .DESCRIPTION
+        This function deletes users from a specified organizational unit and the mailboxes associated with them if the -UseAD flag is set.
+
+        .PARAMETER ADOrganizationalUnit
+        Description: Mailboxes for every user in this organizational unit will be made
+        Mandatory: Yes
+        Default Value: None
+
+        .PARAMETER DCDomain
+        Description: Used to specify which domain to pull users from. NOTE: should be in format of "something.something". Example: domain.com
+        Mandatory: No
+        Default Value: $env:USERDNSDOMAIN
+    #>
     function Remove-AllExchangeUsersAD {
-        $ad_users = Get-ADUser -filter * -SearchBase "ou=Exchange Users,dc=capstone,dc=net" | Select-Object Name, ObjectGUID
+        param (
+            [Parameter(Mandatory=$true)]
+            [string]
+            $ADOrganizationalUnit,
+            
+            [ValidatePattern('^[\S+]+\.[\S]+$')]
+            [string]
+            $DCDomain = $env:USERDNSDOMAIN
+        )
+
+        $dc_company_component = $DCDomain.Split(".")[0]
+        $dc_tld_component = $DCDomain.Split(".")[1]
+
+        $ad_users = Get-ADUser -filter * -SearchBase "ou=$ADOrganizationalUnit,dc=$dc_company_component,dc=$dc_tld_component" | Select-Object Name, ObjectGUID
         foreach ($ad_user in $ad_users) {
             Remove-ADUser -Identity $ad_user.ObjectGUID -Confirm:$false
         }
 
     }
 
+    <#
+        .DESCRIPTION
+        This function deletes all mailboxes except the ones belonging to the Administrator and DiscoverySearchMailbox. This was mainly used when testing.
+    #>
     function Remove-AllMailboxes {
         $mailboxes = Get-Mailbox | Select-Object Name
         foreach ($mailbox in $mailboxes) {
@@ -361,11 +415,11 @@ process {
 
     # Add-SendConnector -ConnectorName $ConnectorName -ConnectorDomain $ConnectorDomain -ConnectorTransportServer $ConnectorTransportServer 
 
-    Add-EmailAddressPolicy -EmailPolicyIdentity $EmailPolicyIdentity -EmailPolicyTemplate $EmailPolicyTemplate
+    # Add-EmailAddressPolicy -EmailPolicyIdentity $EmailPolicyIdentity -EmailPolicyTemplate $EmailPolicyTemplate
 
     # Update-FirewallRules
 
-    # Add-MailboxFromAD
+    Add-MailboxFromAD -ADOrganizationalUnit $ADOrganizationalUnit -DCDomain $DCDomain
 
     # Add-MailboxFromCsv
 } # End Process
