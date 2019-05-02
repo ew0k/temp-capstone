@@ -1,6 +1,4 @@
-﻿#TODO: make .PARAMETERS more consistent and add lines for function used in and default value
-
-<#
+﻿<#
     .SYNOPSIS
     configure_exchange
 
@@ -17,44 +15,67 @@
     6) Create mailboxes from a CSV file
 
     .NOTES
-    Script tested on Exchange Server 2016. 
+     - Script tested on Exchange Server 2016. 
+     - If you wish to just use functions within this script without running the whole script, comment out the main
+       function code section at the bottom and dot source the file. The you will be able to use these functions as powershell
+       functions from the commandline.
 
     .PARAMETER ADOrganizationalUnit
-    Used when adding mailboxes from Active Directory in Add-MailboxFromAD. Mailboxes for every user in the organizational unit will be made
+    Description: Mailboxes for every user in this organizational unit will be made.
+    Mandatory: False
+    Default Value: None
+    Function Found In: Add-MailboxFromAD
 
     .PARAMETER ConnectorDomain
-    Specifies the domain names to which the send connector routes mail. Used in function Add-SendConnector as the -AddressSpaces argument
+    Description: Specifies the domain name to which the send connector routes mail.
+    Mandatory: False
+    Default Value: $env:USERDNSDOMAIN
+    Function Found In: Add-SendConnector
 
     .PARAMETER ConnectorName
-    Specifies the name of the send connector. Used in function Add-SendConnector as the -Name argument
+    Description: Specifies the name of the send connector.
+    Mandatory: False
+    Default Value: "SMTP Mail Send"
+    Function Found In: Add-SendConnector
 
     .PARAMETER ConnectorTransportServer
-    Specifies the names of the Mailbox servers that can use this send connector. Used in function Add-SendConnector as the -SourceTransportServers argument
+    Description: Specifies the name of the Mailbox servers that can use this send connector.
+    Mandatory: False
+    Default Value: $env:COMPUTERNAME
+    Function Found In: Add-SendConnector
+
+    .PARAMETER DCDomain
+    Description: Used to specify which domain to pull users from. NOTE: should be in format of "something.something". Example: domain.com
+    Mandatory: False
+    Default Value: $env:USERDNSDOMAIN 
+    Function Found In: Add-MailboxFromAD
 
     .PARAMETER EmailPolicyIdentity
-    Specifies the email address policy that you want to modify. Used in function Add-EmailAddressPolicy as the -Identity argument
+    Description: Specifies the email address policy that you want to modify.
+    Mandatory: False
+    Default Value: Defalt Policy
+    Function Found In: Add-EmailAddressPolicy
 
-    # TODO: add link to template options here
     .PARAMETER EmailPolicyTemplate
-    Specifies the rules in the email address policy that are used to generate email addresses for recipients. Used in function Add-EmailAddressPolicy as the -EnabledEmailAddressTemplates argument
+    Description: Specifies the rules in the email address policy that are used to generate email addresses for recipients.
+    Mandatory: False
+    Defualt Value: "SMTP:%g.%s@" + $env:USERDNSDOMAIN
+    Function Found In: Add-EmailAddressPolicy
 
     .PARAMETER Password
-    Specifies password to be used when connecting to the exchange server. Used in function Connect-ExchangeServer. NOTE: password must be of System.Security.SecureString type
+    Description: Specifies password to be used when connecting to the exchange server. NOTE: password must be of type System.Security.SecureString
+    Mandatory: True
+    Default Value: None
+    Fuction Used In: Connect-ExchangeServer
 
     .PARAMETER PathToCSV
-    Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file. Used in function Add-MailboxFromCsv. NOTE: The CSV file must of the following format:
-    ###FORMAT###
-    Name, LName, FName, Alias, Password, UPN
-    ###END FORMAT###
-
-    ###EXAMPLE FILE###
-    Name, LName, FName, Alias, Password, UPN
-    Joe Johnson, Johnson, Joe, Joe, Password1, joe.Johnson@capstone
-    ###END EXAMPLE FILE###
+    Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file.
+    Mandatory: False
+    Default Value: None
+    Function Found In: Add-MailboxFromCsv
 
     .PARAMETER ServerURI
-    #TODO: what is a proper fqdn?
-    Specifies the URI of the exchange server. Used in function Connect-ExchangeServer as the -ConnectionUri argument. NOTE: format must be either one of the following
+    Description: Specifies the URI of the exchange server. NOTE: format must be either one of the following:
     ###FORMAT 1###
     http://<FQDN>/PowerShell
     ###END FORMAT 1###
@@ -63,11 +84,22 @@
     https://<FQDN>/PowerShell
     ###END FORMAT 2###
 
+    Mandatory: False
+    Default Value: http://$env:COMPUTERNAME.$env:USERDNSDOMAIN/PowerShell
+        NOTE: This default value is designed for running the script locally on the exchange server
+    Function Found In: Connect-ExchangeServer
+
     .PARAMETER UseAD
-    Specifies whether to add users from Active Directory or not. If set, ADOrganizationalUnit must be set as well. Used in Add-MailboxFromAD
+    Specifies whether to add users from Active Directory or not. If set, ADOrganizationalUnit must be set as well. 
+    Mandatory: False
+    Default Value: N/A
+    Function Used In: Add-MailboxFromAD
 
     .PARAMETER Username
-    Specifies username used to connect to the exchange server. Used in Connect-ExchangeServer
+    Description: Specifies username used to connect to the exchange server.
+    Mandatory: False
+    Default Value: $env:USERNAME
+    Function Found In: Connect-ExchangeServer
 
     .EXAMPLE
     $password = ConvertTo-SecureString 'Password1' -AsPlainText -Force
@@ -89,7 +121,6 @@
         [string]
         $ADOrganizationalUnit,
 
-        # TODO: Update this regex to allow for more than one entry
         [ValidatePattern('^[\S+]+\.[\S]+$')]
         [string[]]
         $ConnectorDomain = $env:USERDNSDOMAIN,
@@ -97,7 +128,6 @@
         [string]
         $ConnectorName = "SMTP Mail Send",
 
-        # TODO: Update this regex to allow for more than one entry
         [ValidatePattern('^\S+$')]
         [string[]]
         $ConnectorTransportServer = $env:COMPUTERNAME,
@@ -129,7 +159,6 @@
         [switch]
         $UseAD,
 
-        # TODO: update regex and default value to accomodate capstone\Administrator form
         [ValidatePattern('^\S+$')]
         [string]
         $Username = $env:USERNAME
@@ -142,7 +171,7 @@ process {
 
         .PARAMETER Password
         Description: Specifies password to be used when connecting to the exchange server. NOTE: password must be of type System.Security.SecureString
-        Mandatory: Yes
+        Mandatory: True
         Default Value: None
 
         .PARAMETER ServerURI
@@ -155,13 +184,13 @@ process {
         https://<FQDN>/PowerShell
         ###END FORMAT 2###
 
-        Mandatory: No
+        Mandatory: False
         Default Value: http://$env:COMPUTERNAME.$env:USERDNSDOMAIN/PowerShell
         NOTE: This default value is designed for running the script locally on the exchange server
 
         .PARAMETER Username
         Description: Specifies username used to connect to the exchange server.
-        Mandatory: No
+        Mandatory: False
         Default Value: $env:USERNAME
     #>
     function Connect-ExchangeServer {
@@ -187,21 +216,22 @@ process {
 
     <#
         .DESCRIPTION
-        This function adds a send connector which is needed to send mail from the exchange server to the internet.
+        This function adds a send connector which is needed to send mail from the exchange server to the internet. By default it adds a connector named
+        "SMTP Mail Send" and connects it to your current domain and uses the local server as a transport server.
 
         .PARAMETER ConnectorDomain
         Description: Specifies the domain name to which the send connector routes mail.
-        Mantatory: No
+        Mantatory: False
         Default Value: $env:USERDNSDOMAIN
 
         .PARAMETER ConnectorName
         Description: Specifies the name of the send connector.
-        Mandatory: No
+        Mandatory: False
         Default Value: "SMTP Mail Send"
 
         .PARAMETER ConnectorTransportServer
         Description: Specifies the name of the Mailbox servers that can use this send connector.
-        Mandatory: No
+        Mandatory: False
         Default Value: $env:COMPUTERNAME
     #>
     function Add-SendConnector {
@@ -217,10 +247,13 @@ process {
             [string[]]
             $ConnectorTransportServer = $env:COMPUTERNAME
         )
+        $existing_connectors = Get-SendConnector | Select-Object Name
 
-        # Configure a Send Connector that connects to the internet
-        New-SendConnector -Name $ConnectorName -Internet -AddressSpaces $ConnectorDomain -SourceTransportServers $ConnectorTransportServer
-        Write-Output "Created new send connector called $ConnectorName"
+        If (-Not($existing_connectors.Name -contains $ConnectorName)) {
+            # Configure a Send Connector that connects to the internet
+            New-SendConnector -Name $ConnectorName -Internet -AddressSpaces $ConnectorDomain -SourceTransportServers $ConnectorTransportServer
+            Write-Output "Created new send connector called $ConnectorName"
+        }
     }
 
     <#
@@ -229,12 +262,12 @@ process {
 
         .PARAMETER EmailPolicyIdentity
         Description: Specifies the email address policy that you want to modify.
-        Mandatory: No
+        Mandatory: False
         Default Value: Defalt Policy
 
         .PARAMETER EmailPolicyTemplate
         Description: Specifies the rules in the email address policy that are used to generate email addresses for recipients.
-        Mandatory: No
+        Mandatory: False
         Defualt Value: "SMTP:%g.%s@" + $env:USERDNSDOMAIN
     #>
     function Add-EmailAddressPolicy {
@@ -281,13 +314,13 @@ process {
         This function adds mailboxes from a specific organizational unit in active directory if the -UseAD flag is set.
 
         .PARAMETER ADOrganizationalUnit
-        Description: Mailboxes for every user in this organizational unit will be made
-        Mandatory: Yes
+        Description: Mailboxes for every user in this organizational unit will be made.
+        Mandatory: True
         Default Value: None
 
         .PARAMETER DCDomain
         Description: Used to specify which domain to pull users from. NOTE: should be in format of "something.something". Example: domain.com
-        Mandatory: No
+        Mandatory: False
         Default Value: $env:USERDNSDOMAIN
     #>
     function Add-MailboxFromAD {
@@ -316,21 +349,25 @@ process {
 
     <#
         .DESCRIPTION
-        This function adds mailboxes from a specific organizational unit in active directory if the -UseAD flag is set.
-
-        .PARAMETER PathToCSV
-        Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file. NOTE: The CSV file must of the following format:
+        This function adds mailboxes from a CSV file. NOTE: The CSV file must of the following format:
         ###FORMAT###
         Name, LName, FName, Alias, Password, UPN
         ###END FORMAT###
 
+        Here is an example: 
         ###EXAMPLE FILE###
         Name, LName, FName, Alias, Password, UPN
         Joe Johnson, Johnson, Joe, Joe, Password1, joe.Johnson@capstone
         ###END EXAMPLE FILE###
+
+        .PARAMETER PathToCSV
+        Instructs the script to add mailboxes based on information in a CSV file and gives a path to the CSV file.
+        Mandatory: True
+        Default Value: None
     #>
     function Add-MailboxFromCsv {
         param (
+            [Parameter(Mandatory=$true)]
             [ValidateScript({Test-Path $_})]
             [string]
             $PathToCSV
@@ -347,16 +384,16 @@ process {
 
     <#
         .DESCRIPTION
-        This function deletes users from a specified organizational unit and the mailboxes associated with them if the -UseAD flag is set.
+        This function deletes users from a specified organizational unit. This was mainly used when testing.
 
         .PARAMETER ADOrganizationalUnit
-        Description: Mailboxes for every user in this organizational unit will be made
-        Mandatory: Yes
+        Description: Every user in this organizational unit will be deleted
+        Mandatory: True
         Default Value: None
 
         .PARAMETER DCDomain
-        Description: Used to specify which domain to pull users from. NOTE: should be in format of "something.something". Example: domain.com
-        Mandatory: No
+        Description: Domain to delete users in. NOTE: should be in format of "something.something". Example: domain.com
+        Mandatory: False
         Default Value: $env:USERDNSDOMAIN
     #>
     function Remove-AllExchangeUsersAD {
@@ -398,28 +435,20 @@ process {
     # MAIN
     ########################################
 
-    # Write-Output "Username: $Username"
-    # Write-Output "Password: $Password"
-    # Write-Output "ServerURI: $ServerURI"
-    # Write-Output "ConnectorName: $ConnectorName"
-    # Write-Output "ConnectorDomain: $ConnectorDomain"
-    # Write-Output "ConnectorTransportServer: $ConnectorTransportServer"
-    # Write-Output "EmailPolicyIdentity: $EmailPolicyIdentity"
-    # Write-Output "EmailPolicyTemplate: $EmailPolicyTemplate"
-    # Write-Output "PathToCSV: $PathToCSV"
-    # Write-Output "UseAD: $UseAD"
-    # Write-Output "ADOrganizationalUnit: $ADOrganizationalUnit"
+    Connect-ExchangeServer -Password $Password -Username $Username -ServerURI $ServerURI
 
+    Add-SendConnector -ConnectorName $ConnectorName -ConnectorDomain $ConnectorDomain -ConnectorTransportServer $ConnectorTransportServer 
 
-    # Connect-ExchangeServer -Password $Password -Username $Username -ServerURI $ServerURI
+    Add-EmailAddressPolicy -EmailPolicyIdentity $EmailPolicyIdentity -EmailPolicyTemplate $EmailPolicyTemplate
 
-    # Add-SendConnector -ConnectorName $ConnectorName -ConnectorDomain $ConnectorDomain -ConnectorTransportServer $ConnectorTransportServer 
+    Update-FirewallRules
 
-    # Add-EmailAddressPolicy -EmailPolicyIdentity $EmailPolicyIdentity -EmailPolicyTemplate $EmailPolicyTemplate
+    If ($UseAD -eq $true) {
+        Add-MailboxFromAD -ADOrganizationalUnit $ADOrganizationalUnit -DCDomain $DCDomain
+    }
 
-    # Update-FirewallRules
+    If ($PathToCSV) {
+        Add-MailboxFromCsv -PathToCSV $PathToCSV
+    }
 
-    Add-MailboxFromAD -ADOrganizationalUnit $ADOrganizationalUnit -DCDomain $DCDomain
-
-    # Add-MailboxFromCsv
 } # End Process
