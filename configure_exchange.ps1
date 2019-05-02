@@ -279,12 +279,24 @@ process {
         Description: Mailboxes for every user in this organizational unit will be made
         Mandatory: Yes
         Default Value: None
+
+        .PARAMETER DCCompanyComponent
+        Description: 
+        Mandatory: No
+        Default Value: 
+
     #>
     function Add-MailboxFromAD {
         param (
             [Parameter(Mandatory=$true)]
             [string]
-            $ADOrganizationalUnit
+            $ADOrganizationalUnit,
+
+            [string]
+            $DCCompanyComponent = $env:USERDNSDOMAIN.Split(".")[0],
+
+            [string]
+            $DCTLDComponent = $env:USERDNSDOMAIN.Split(".")[1]
         )
 
         $existing_users = Get-Mailbox | Select-Object Name
